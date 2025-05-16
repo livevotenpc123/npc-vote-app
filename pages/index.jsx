@@ -11,13 +11,8 @@ export default function Home() {
   const [prediction, setPrediction] = useState('');
   const [userId, setUserId] = useState(null);
   const [alreadyVoted, setAlreadyVoted] = useState(false);
+  const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const dailyQuestion = {
-    date: dayjs().format('YYYY-MM-DD'),
-    question: 'Should cereal be illegal?',
-    options: ['Yes', 'No'],
-  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -25,16 +20,31 @@ export default function Home() {
       const user = data?.user;
       if (user) setUserId(user.id);
     };
-
     fetchUser();
   }, []);
 
   useEffect(() => {
+    const fetchQuestion = async () => {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('date', dayjs().format('YYYY-MM-DD'))
+        .single();
+
+      if (data) setQuestion(data);
+      else console.error('No question found for today', error);
+    };
+
+    fetchQuestion();
+  }, []);
+
+  useEffect(() => {
     const fetchVotes = async () => {
+      if (!question || !userId) return;
       const { data, error } = await supabase
         .from('votes')
         .select('*')
-        .eq('question_id', dailyQuestion.date);
+        .eq('question_id', question.id);
 
       if (data) {
         const counts = data.reduce(
@@ -46,43 +56,52 @@ export default function Home() {
         );
         setVotes(counts);
 
-        if (userId) {
-          const already = data.find((v) => v.user_id === userId);
-          if (already) setAlreadyVoted(true);
-        }
+        const already = data.find((v) => v.user_id === userId);
+        if (already) setAlreadyVoted(true);
       }
 
       setLoading(false);
     };
 
-    if (userId) fetchVotes();
-  }, [userId]);
+    fetchVotes();
+  }, [userId, question]);
 
   const handleVote = async (option) => {
-    if (alreadyVoted || !userId || !prediction) return;
+    if (alreadyVoted || !userId || !prediction || !question?.id) return;
 
-    await supabase.from('votes').insert([
-      {
-        question_id: dailyQuestion.date,
-        choice: option,
-        user_id: userId,
-        prediction,
-      },
-    ]);
+    try {
+      const { error } = await supabase.from('votes').insert([
+        {
+          question_id: question.id,
+          choice: option,
+          user_id: userId,
+          prediction,
+        },
+      ]);
 
-    setSelectedOption(option);
-    setVotes((prev) => ({
-      ...prev,
-      [option]: (prev[option] || 0) + 1,
-    }));
-    setAlreadyVoted(true);
+      console.log('Vote attempt:', { userId, option, prediction, error });
+
+      if (error) {
+        alert('Vote failed: ' + error.message);
+        return;
+      }
+
+      setSelectedOption(option);
+      setVotes((prev) => ({
+        ...prev,
+        [option]: (prev[option] || 0) + 1,
+      }));
+      setAlreadyVoted(true);
+    } catch (err) {
+      console.error('Vote insert threw error:', err);
+    }
   };
 
   const handleCommentSubmit = async () => {
-    if (comment.trim()) {
+    if (comment.trim() && question?.id) {
       await supabase.from('comments').insert([
         {
-          question_id: dailyQuestion.date,
+          question_id: question.id,
           content: comment.trim(),
           user_id: userId,
         },
@@ -94,7 +113,7 @@ export default function Home() {
 
   const totalVotes = votes.Yes + votes.No || 1;
 
-  if (loading) return <p>Loading...</p>;
+  if (loading || !question) return <p>Loading...</p>;
 
   return (
     <div style={styles.container}>
@@ -104,8 +123,8 @@ export default function Home() {
       </header>
 
       <main style={styles.main}>
-        <p style={styles.date}>{dailyQuestion.date}</p>
-        <h1 style={styles.question}>{dailyQuestion.question}</h1>
+        <p style={styles.date}>{question.date}</p>
+        <h1 style={styles.question}>{question.question_text}</h1>
 
         {!selectedOption && !alreadyVoted ? (
           <>
@@ -119,7 +138,7 @@ export default function Home() {
               <option value="No">No</option>
             </select>
             <div style={styles.optionsContainer}>
-              {dailyQuestion.options.map((option) => (
+              {[question.option_a, question.option_b].map((option) => (
                 <button
                   key={option}
                   onClick={() => handleVote(option)}
@@ -133,8 +152,8 @@ export default function Home() {
         ) : (
           <div style={styles.resultsContainer}>
             <div style={styles.resultsBar}>
-              <span>Yes: {((votes.Yes / totalVotes) * 100).toFixed(1)}%</span>
-              <span>No: {((votes.No / totalVotes) * 100).toFixed(1)}%</span>
+              <span>{question.option_a}: {((votes.Yes / totalVotes) * 100).toFixed(1)}%</span>
+              <span>{question.option_b}: {((votes.No / totalVotes) * 100).toFixed(1)}%</span>
             </div>
             <button style={styles.shareButton}>Share</button>
           </div>
