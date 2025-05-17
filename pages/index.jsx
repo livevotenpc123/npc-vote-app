@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 export default function Home() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [votes, setVotes] = useState({});
+  const [streak, setStreak] = useState(0);
   const [comment, setComment] = useState('');
   const [commentsList, setCommentsList] = useState([]);
   const [prediction, setPrediction] = useState('');
@@ -65,6 +66,24 @@ export default function Home() {
 
     fetchVotes();
   }, [userId, question]);
+  useEffect(() => {
+  const fetchStreak = async () => {
+    if (!userId) return; // wait until user is loaded
+
+    const { data, error } = await supabase.rpc('get_user_streak', {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      console.error('Error fetching streak:', error.message);
+    } else {
+      setStreak(data);
+    }
+  };
+
+  fetchStreak();
+}, [userId]); // this runs when the user ID is available
+
 
   const handleVote = async (option) => {
     if (alreadyVoted || !userId || !prediction || !question?.id) return;
@@ -179,6 +198,11 @@ export default function Home() {
             </button>
           </div>
         )}
+{userId && (
+  <p style={{ fontWeight: 'bold', marginTop: '10px' }}>
+    🔥 Your streak: {streak} day{streak !== 1 ? 's' : ''}
+  </p>
+)}
 
         <footer style={styles.footer}>1 question per day</footer>
       </main>
