@@ -6,7 +6,6 @@ import dayjs from 'dayjs';
 export default function Home() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [votes, setVotes] = useState({});
-  const [streak, setStreak] = useState(0);
   const [comment, setComment] = useState('');
   const [commentsList, setCommentsList] = useState([]);
   const [prediction, setPrediction] = useState('');
@@ -14,9 +13,9 @@ export default function Home() {
   const [alreadyVoted, setAlreadyVoted] = useState(false);
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [streak, setStreak] = useState(0);
   const [wins, setWins] = useState(0);
-const [losses, setLosses] = useState(0);
-
+  const [losses, setLosses] = useState(0);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -69,48 +68,43 @@ const [losses, setLosses] = useState(0);
 
     fetchVotes();
   }, [userId, question]);
+
   useEffect(() => {
-  const fetchStreak = async () => {
-    if (!userId) return; // wait until user is loaded
+    const fetchStreak = async () => {
+      if (!userId) return;
+      const { data, error } = await supabase.rpc('get_user_streak', {
+        p_user_id: userId,
+      });
+      if (!error && data !== null) {
+        setStreak(data);
+      }
+    };
+    fetchStreak();
+  }, [userId]);
 
-    const { data, error } = await supabase.rpc('get_user_streak', {
-      p_user_id: userId,
-    });
+  useEffect(() => {
+    const fetchPredictionRecord = async () => {
+      if (!userId) return;
 
-    if (error) {
-      console.error('Error fetching streak:', error.message);
-    } else {
-      setStreak(data);
-    }
-  };
+      const { data, error } = await supabase
+        .from('votes')
+        .select('correct_prediction')
+        .eq('user_id', userId);
 
-  fetchStreak();
-}, [userId]); // this runs when the user ID is available
-useEffect(() => {
-  const fetchPredictionRecord = async () => {
-    if (!userId) return;
+      if (error) {
+        console.error('Error fetching prediction record:', error.message);
+        return;
+      }
 
-    const { data, error } = await supabase
-      .from('votes')
-      .select('correct_prediction')
-      .eq('user_id', userId);
+      const winsCount = data.filter((v) => v.correct_prediction === true).length;
+      const lossesCount = data.filter((v) => v.correct_prediction === false).length;
 
-    if (error) {
-      console.error('Error fetching prediction record:', error.message);
-      return;
-    }
+      setWins(winsCount);
+      setLosses(lossesCount);
+    };
 
-    const winsCount = data.filter((v) => v.correct_prediction === true).length;
-    const lossesCount = data.filter((v) => v.correct_prediction === false).length;
-
-    setWins(winsCount);
-    setLosses(lossesCount);
-  };
-
-  fetchPredictionRecord();
-}, [userId]);
-
-
+    fetchPredictionRecord();
+  }, [userId]);
 
   const handleVote = async (option) => {
     if (alreadyVoted || !userId || !prediction || !question?.id) return;
@@ -124,8 +118,6 @@ useEffect(() => {
           prediction,
         },
       ]);
-
-      console.log('Vote attempt:', { userId, option, prediction, error });
 
       if (error) {
         alert('Vote failed: ' + error.message);
@@ -171,6 +163,13 @@ useEffect(() => {
       <main style={styles.main}>
         <p style={styles.date}>{question.date}</p>
         <h1 style={styles.question}>{question.question_text}</h1>
+
+        {userId && (
+          <>
+            <p style={{ fontWeight: 'bold', marginTop: '10px' }}>🔥 Your streak: {streak} day{streak !== 1 ? 's' : ''}</p>
+            <p style={{ fontWeight: 'bold', marginTop: '5px' }}>🏅 Prediction record: {wins} - {losses}</p>
+          </>
+        )}
 
         {!selectedOption && !alreadyVoted ? (
           <>
@@ -225,21 +224,12 @@ useEffect(() => {
             </button>
           </div>
         )}
-{userId && (
-  <p style={{ fontWeight: 'bold', marginTop: '10px' }}>
-    🔥 Your streak: {streak} day{streak !== 1 ? 's' : ''}
-  </p>
-)}
+
         <footer style={styles.footer}>1 question per day</footer>
       </main>
     </div>
   );
-}{userId && (
-  <p style={{ fontWeight: 'bold', marginTop: '5px' }}>
-    🏅 Prediction record: {wins} - {losses}
-  </p>
-)}
-
+}
 
 const styles = {
   container: {
@@ -340,4 +330,3 @@ const styles = {
     fontSize: '14px',
   },
 };
-
