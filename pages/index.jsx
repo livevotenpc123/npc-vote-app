@@ -203,7 +203,6 @@ export default function Home() {
     🔥 Your streak: {streak} day{streak !== 1 ? 's' : ''}
   </p>
 )}
-
         <footer style={styles.footer}>1 question per day</footer>
       </main>
     </div>
