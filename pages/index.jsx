@@ -14,6 +14,9 @@ export default function Home() {
   const [alreadyVoted, setAlreadyVoted] = useState(false);
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [wins, setWins] = useState(0);
+const [losses, setLosses] = useState(0);
+
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -83,6 +86,30 @@ export default function Home() {
 
   fetchStreak();
 }, [userId]); // this runs when the user ID is available
+useEffect(() => {
+  const fetchPredictionRecord = async () => {
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('votes')
+      .select('correct_prediction')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching prediction record:', error.message);
+      return;
+    }
+
+    const winsCount = data.filter((v) => v.correct_prediction === true).length;
+    const lossesCount = data.filter((v) => v.correct_prediction === false).length;
+
+    setWins(winsCount);
+    setLosses(lossesCount);
+  };
+
+  fetchPredictionRecord();
+}, [userId]);
+
 
 
   const handleVote = async (option) => {
@@ -207,7 +234,12 @@ export default function Home() {
       </main>
     </div>
   );
-}
+}{userId && (
+  <p style={{ fontWeight: 'bold', marginTop: '5px' }}>
+    🏅 Prediction record: {wins} - {losses}
+  </p>
+)}
+
 
 const styles = {
   container: {
