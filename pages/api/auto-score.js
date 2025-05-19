@@ -14,6 +14,11 @@ function getYesterdayDate() {
 }
 
 export default async function handler(req, res) {
+  // ✅ Security check: only allow requests with correct CRON_SECRET
+  if (req.headers.get('Authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   const date = getYesterdayDate();
   console.log('📆 Scoring for date:', date);
 
@@ -47,7 +52,7 @@ export default async function handler(req, res) {
   }
 
   const winner = count.Yes === count.No
-    ? 'Yes'  // or change to 'No' if you prefer for ties
+    ? 'Yes'
     : count.Yes > count.No ? 'Yes' : 'No';
 
   // ✅ 3. Update the question with the winner
@@ -73,3 +78,4 @@ export default async function handler(req, res) {
     message: `✅ Success: winner was ${winner} on ${date}`,
   });
 }
+

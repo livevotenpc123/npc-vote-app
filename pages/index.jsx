@@ -159,6 +159,13 @@ export default function Home() {
         <div>NPC</div>
         <a href="/auth" style={styles.loginButton}>Login</a>
       </header>
+<header style={styles.header}>
+  <div>NPC</div>
+  <div>
+    <a href="/leaderboard" style={styles.link}>🏆 Leaderboard</a>
+  </div>
+  <button style={styles.loginButton}>Log in</button>
+</header>
 
       <main style={styles.main}>
         <p style={styles.date}>{question.date}</p>
