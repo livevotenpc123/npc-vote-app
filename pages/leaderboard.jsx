@@ -9,7 +9,7 @@ export default function Leaderboard() {
       const { data, error } = await supabase.from('user_leaderboard').select('*');
 
       if (error) {
-        console.error('Failed to fetch leaderboard:', error.message);
+        console.error('❌ Failed to fetch leaderboard:', error.message);
       } else {
         setLeaders(data);
       }
@@ -19,22 +19,27 @@ export default function Leaderboard() {
   }, []);
 
   return (
-    <div style={{ padding: '30px', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>🏆 Leaderboard</h1>
-      <table style={{ width: '100%', marginTop: '20px', borderCollapse: 'collapse' }}>
+    <div style={{ padding: '30px', maxWidth: '700px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+      <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>🏆 Leaderboard</h1>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>User</th>
-            <th>Wins</th>
-            <th>Total</th>
+          <tr style={{ backgroundColor: '#f5f5f5' }}>
+            <th style={styles.th}>User</th>
+            <th style={styles.th}>Wins</th>
+            <th style={styles.th}>Total</th>
+            <th style={styles.th}>Accuracy</th>
+            <th style={styles.th}>🔥 Streak</th>
           </tr>
         </thead>
         <tbody>
-          {leaders.map((user, idx) => (
-            <tr key={idx}>
-              <td>{user.user_id.slice(0, 6)}...</td>
-              <td style={{ textAlign: 'center' }}>{user.wins}</td>
-              <td style={{ textAlign: 'center' }}>{user.total_predictions}</td>
+          {leaders.map((user, index) => (
+            <tr key={index} style={index % 2 === 0 ? styles.evenRow : styles.oddRow}>
+              <td style={styles.td}>{user.user_id.slice(0, 6)}...</td>
+              <td style={styles.tdCenter}>{user.wins}</td>
+              <td style={styles.tdCenter}>{user.total_predictions}</td>
+              <td style={styles.tdCenter}>{user.accuracy}%</td>
+              <td style={styles.tdCenter}>{user.current_streak}</td>
             </tr>
           ))}
         </tbody>
@@ -42,3 +47,28 @@ export default function Leaderboard() {
     </div>
   );
 }
+
+const styles = {
+  th: {
+    textAlign: 'left',
+    padding: '10px',
+    borderBottom: '1px solid #ccc',
+  },
+  td: {
+    padding: '10px',
+    textAlign: 'left',
+    borderBottom: '1px solid #eee',
+  },
+  tdCenter: {
+    padding: '10px',
+    textAlign: 'center',
+    borderBottom: '1px solid #eee',
+  },
+  evenRow: {
+    backgroundColor: '#ffffff',
+  },
+  oddRow: {
+    backgroundColor: '#fafafa',
+  },
+};
+
