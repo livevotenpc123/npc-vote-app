@@ -35,7 +35,7 @@ export default function Leaderboard() {
         <tbody>
           {leaders.map((user, index) => (
             <tr key={index} style={index % 2 === 0 ? styles.evenRow : styles.oddRow}>
-              <td>{user.email ? user.email.split('@')[0] : user.user_id.slice(0, 6)}</td>
+             <td>{user.username || user.user_id.slice(0, 6)}</td>
               <td style={styles.tdCenter}>{user.wins}</td>
               <td style={styles.tdCenter}>{user.total_predictions}</td>
               <td style={styles.tdCenter}>{user.accuracy}%</td>
