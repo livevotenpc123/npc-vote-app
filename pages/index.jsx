@@ -109,6 +109,19 @@ export default function Home() {
   const handleVote = async (option) => {
   if (alreadyVoted || !userId || !prediction || !question?.id) return;
 
+  // Check if user has a username first
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', userId)
+    .single();
+
+  if (!profile || !profile.username) {
+    localStorage.setItem('redirectAfterProfile', '/');
+    window.location.href = '/profile';
+    return;
+  }
+
   try {
     const {
       data: { user },
@@ -139,8 +152,6 @@ export default function Home() {
     console.error('Vote insert threw error:', err);
   }
 };
-
-
   const handleCommentSubmit = async () => {
     if (comment.trim() && question?.id) {
       await supabase.from('comments').insert([
