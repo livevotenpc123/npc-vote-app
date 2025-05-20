@@ -18,13 +18,17 @@ export default function Home() {
   const [losses, setLosses] = useState(0);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
-      if (user) setUserId(user.id);
-    };
-    fetchUser();
-  }, []);
+  const fetchUser = async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (user) {
+      setUserId(user.id);
+    } else {
+      console.error('No user found:', error);
+    }
+  };
+  fetchUser();
+}, []);
+
 
   useEffect(() => {
     const fetchQuestion = async () => {
