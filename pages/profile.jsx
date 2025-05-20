@@ -23,6 +23,7 @@ export default function Profile() {
   }, []);
 
   const handleSubmit = async () => {
+    console.log('Submitting username:', username, 'userId:', userId);
     if (!username || !userId) return;
     setLoading(true);
 
@@ -34,6 +35,13 @@ export default function Profile() {
       alert('Failed to save username');
     } else {
       alert('Username saved!');
+      const next = localStorage.getItem('redirectAfterProfile');
+      if (next) {
+        localStorage.removeItem('redirectAfterProfile');
+        window.location.href = next;
+      } else {
+        window.location.href = '/';
+      }
     }
     setLoading(false);
   };
