@@ -31,19 +31,25 @@ export default function Home() {
 
 
   useEffect(() => {
-    const fetchQuestion = async () => {
-      const { data, error } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('date', dayjs().format('YYYY-MM-DD'))
-        .single();
+  const fetchQuestion = async () => {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('date', dayjs().format('YYYY-MM-DD'))
+      .single();
 
-      if (data) setQuestion(data);
-      else console.error('No question found for today', error);
-    };
+    if (data) {
+      setQuestion(data);
+    } else {
+      console.error('No question found for today', error);
+    }
 
-    fetchQuestion();
-  }, []);
+    setLoading(false); // ✅ make sure loading ends here
+  };
+
+  fetchQuestion();
+}, []);
+
 
   useEffect(() => {
     const fetchVotes = async () => {
