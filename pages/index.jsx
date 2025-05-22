@@ -8,6 +8,7 @@ export default function Home() {
   const [votes, setVotes] = useState({});
   const [comment, setComment] = useState('');
   const [commentsList, setCommentsList] = useState([]);
+  const [replyMap, setReplyMap] = useState({});
   const [prediction, setPrediction] = useState('');
   const [userId, setUserId] = useState(null);
   const [alreadyVoted, setAlreadyVoted] = useState(false);
@@ -18,62 +19,48 @@ export default function Home() {
   const [losses, setLosses] = useState(0);
 
   useEffect(() => {
-  const fetchUser = async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (user) {
-      setUserId(user.id);
-    } else {
-      console.error('No user found:', error);
-    }
-  };
-  fetchUser();
-}, []);
-
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    fetchUser();
+  }, []);
 
   useEffect(() => {
-  const fetchQuestion = async () => {
-    const { data, error } = await supabase
-      .from('questions')
-      .select('*')
-      .eq('date', dayjs().format('YYYY-MM-DD'))
-      .single();
+    const fetchQuestion = async () => {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('date', dayjs().format('YYYY-MM-DD'))
+        .single();
 
-    if (data) {
-      setQuestion(data);
-    } else {
-      console.error('No question found for today', error);
-    }
+      if (data) setQuestion(data);
+      else console.error('No question found for today', error);
 
-    setLoading(false); // ✅ make sure loading ends here
-  };
+      setLoading(false);
+    };
 
-  fetchQuestion();
-}, []);
-
+    fetchQuestion();
+  }, []);
 
   useEffect(() => {
     const fetchVotes = async () => {
       if (!question || !userId) return;
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('votes')
         .select('*')
         .eq('question_id', question.id);
 
       if (data) {
-        const counts = data.reduce(
-          (acc, vote) => {
-            acc[vote.choice] = (acc[vote.choice] || 0) + 1;
-            return acc;
-          },
-          { Yes: 0, No: 0 }
-        );
+        const counts = data.reduce((acc, vote) => {
+          acc[vote.choice] = (acc[vote.choice] || 0) + 1;
+          return acc;
+        }, { Yes: 0, No: 0 });
         setVotes(counts);
 
         const already = data.find((v) => v.user_id === userId);
         if (already) setAlreadyVoted(true);
       }
-
-      setLoading(false);
     };
 
     fetchVotes();
@@ -82,12 +69,10 @@ export default function Home() {
   useEffect(() => {
     const fetchStreak = async () => {
       if (!userId) return;
-      const { data, error } = await supabase.rpc('get_user_streak', {
+      const { data } = await supabase.rpc('get_user_streak', {
         p_user_id: userId,
       });
-      if (!error && data !== null) {
-        setStreak(data);
-      }
+      if (data !== null) setStreak(data);
     };
     fetchStreak();
   }, [userId]);
@@ -95,52 +80,54 @@ export default function Home() {
   useEffect(() => {
     const fetchPredictionRecord = async () => {
       if (!userId) return;
-
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('votes')
         .select('correct_prediction')
         .eq('user_id', userId);
 
-      if (error) {
-        console.error('Error fetching prediction record:', error.message);
-        return;
-      }
-
       const winsCount = data.filter((v) => v.correct_prediction === true).length;
       const lossesCount = data.filter((v) => v.correct_prediction === false).length;
-
       setWins(winsCount);
       setLosses(lossesCount);
     };
-
     fetchPredictionRecord();
   }, [userId]);
 
+  useEffect(() => {
+    const fetchComments = async () => {
+      if (!question) return;
+      const { data } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('question_id', question.id)
+        .order('created_at', { ascending: true });
+      if (data) setCommentsList(data);
+    };
+    fetchComments();
+  }, [question]);
+
   const handleVote = async (option) => {
-  if (alreadyVoted || !userId || !prediction || !question?.id) return;
+    if (alreadyVoted || !prediction || !question?.id) return;
 
-  // Check if user has a username first
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('username')
-    .eq('id', userId)
-    .single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-  if (!profile || !profile.username) {
-    localStorage.setItem('redirectAfterProfile', '/');
-    window.location.href = '/profile';
-    return;
-  }
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', user.id)
+      .single();
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (!profile || !profile.username) {
+      localStorage.setItem('redirectAfterProfile', '/');
+      window.location.href = '/profile';
+      return;
+    }
 
     const { error } = await supabase.from('votes').insert([
       {
-        user_id: user?.id,
-        email: user?.email,
+        user_id: user.id,
+        email: user.email,
         question_id: question.id,
         choice: option,
         prediction,
@@ -158,21 +145,27 @@ export default function Home() {
       [option]: (prev[option] || 0) + 1,
     }));
     setAlreadyVoted(true);
-  } catch (err) {
-    console.error('Vote insert threw error:', err);
-  }
-};
-  const handleCommentSubmit = async () => {
-    if (comment.trim() && question?.id) {
-      await supabase.from('comments').insert([
-        {
-          question_id: question.id,
-          content: comment.trim(),
-          user_id: userId,
-        },
-      ]);
-      setCommentsList((prev) => [...prev, comment.trim()]);
+  };
+
+  const handleCommentSubmit = async (parentId = null, content = comment) => {
+    if (!content.trim() || !question?.id) return;
+    const { error } = await supabase.from('comments').insert([
+      {
+        question_id: question.id,
+        content: content.trim(),
+        user_id: userId,
+        parent_id: parentId,
+      },
+    ]);
+    if (!error) {
       setComment('');
+      setReplyMap((prev) => ({ ...prev, [parentId]: '' }));
+      const { data } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('question_id', question.id)
+        .order('created_at', { ascending: true });
+      setCommentsList(data);
     }
   };
 
@@ -186,13 +179,6 @@ export default function Home() {
         <div>NPC</div>
         <a href="/auth" style={styles.loginButton}>Login</a>
       </header>
-<header style={styles.header}>
-  <div>NPC</div>
-  <div>
-    <a href="/leaderboard" style={styles.link}>🏆 Leaderboard</a>
-  </div>
-  <button style={styles.loginButton}>Log in</button>
-</header>
 
       <main style={styles.main}>
         <p style={styles.date}>{question.date}</p>
@@ -200,8 +186,8 @@ export default function Home() {
 
         {userId && (
           <>
-            <p style={{ fontWeight: 'bold', marginTop: '10px' }}>🔥 Your streak: {streak} day{streak !== 1 ? 's' : ''}</p>
-            <p style={{ fontWeight: 'bold', marginTop: '5px' }}>🏅 Prediction record: {wins} - {losses}</p>
+            <p><strong>🔥 Your streak:</strong> {streak} day{streak !== 1 ? 's' : ''}</p>
+            <p><strong>🏅 Prediction record:</strong> {wins} - {losses}</p>
           </>
         )}
 
@@ -242,9 +228,33 @@ export default function Home() {
           <div style={styles.commentsSection}>
             <h2>Comments</h2>
             <ul style={styles.commentsList}>
-              {commentsList.map((item, index) => (
-                <li key={index} style={styles.commentItem}>{item}</li>
-              ))}
+              {commentsList
+                .filter((c) => !c.parent_id)
+                .map((comment) => (
+                  <li key={comment.id} style={styles.commentItem}>
+                    <p>{comment.content}</p>
+                    {commentsList
+                      .filter((r) => r.parent_id === comment.id)
+                      .map((reply) => (
+                        <div key={reply.id} style={{ marginLeft: '20px', fontStyle: 'italic' }}>
+                          ↳ {reply.content}
+                        </div>
+                      ))}
+                    <input
+                      type="text"
+                      placeholder="Write a reply..."
+                      value={replyMap[comment.id] || ''}
+                      onChange={(e) => setReplyMap((prev) => ({ ...prev, [comment.id]: e.target.value }))}
+                      style={styles.commentInput}
+                    />
+                    <button
+                      onClick={() => handleCommentSubmit(comment.id, replyMap[comment.id])}
+                      style={styles.submitCommentButton}
+                    >
+                      Reply
+                    </button>
+                  </li>
+                ))}
             </ul>
             <input
               type="text"
@@ -253,7 +263,10 @@ export default function Home() {
               onChange={(e) => setComment(e.target.value)}
               style={styles.commentInput}
             />
-            <button onClick={handleCommentSubmit} style={styles.submitCommentButton}>
+            <button
+              onClick={() => handleCommentSubmit()}
+              style={styles.submitCommentButton}
+            >
               Submit Comment
             </button>
           </div>
@@ -266,101 +279,22 @@ export default function Home() {
 }
 
 const styles = {
-  container: {
-    fontFamily: 'Arial, sans-serif',
-    padding: '10px',
-    maxWidth: '600px',
-    margin: '0 auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '10px 0',
-  },
-  loginButton: {
-    background: 'none',
-    border: '1px solid black',
-    padding: '5px 10px',
-    borderRadius: '5px',
-    textDecoration: 'none',
-    color: 'black',
-  },
-  main: {
-    textAlign: 'center',
-    marginTop: '30px',
-  },
-  date: {
-    color: '#777',
-    marginBottom: '10px',
-  },
-  question: {
-    fontSize: '24px',
-    marginBottom: '20px',
-  },
-  dropdown: {
-    padding: '10px',
-    marginBottom: '20px',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-  },
-  optionsContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-  },
-  voteButton: {
-    padding: '15px',
-    fontSize: '18px',
-    backgroundColor: '#f2f2f2',
-    border: 'none',
-    borderRadius: '10px',
-    cursor: 'pointer',
-  },
-  resultsContainer: {
-    marginBottom: '20px',
-  },
-  resultsBar: {
-    display: 'flex',
-    justifyContent: 'space-around',
-    marginBottom: '10px',
-  },
-  shareButton: {
-    border: '1px solid black',
-    background: 'none',
-    padding: '10px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  commentsSection: {
-    marginTop: '30px',
-  },
-  commentsList: {
-    listStyle: 'none',
-    padding: '0',
-  },
-  commentItem: {
-    padding: '5px',
-    borderBottom: '1px solid #eee',
-  },
-  commentInput: {
-    width: '100%',
-    padding: '10px',
-    marginTop: '10px',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-  },
-  submitCommentButton: {
-    marginTop: '10px',
-    padding: '10px 20px',
-    borderRadius: '5px',
-    border: '1px solid black',
-    background: 'none',
-    cursor: 'pointer',
-  },
-  footer: {
-    marginTop: '50px',
-    color: '#999',
-    fontSize: '14px',
-  },
+  container: { fontFamily: 'Arial', padding: '10px', maxWidth: '600px', margin: '0 auto' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' },
+  loginButton: { background: 'none', border: '1px solid black', padding: '5px 10px', borderRadius: '5px', textDecoration: 'none', color: 'black' },
+  main: { textAlign: 'center', marginTop: '30px' },
+  date: { color: '#777', marginBottom: '10px' },
+  question: { fontSize: '24px', marginBottom: '20px' },
+  dropdown: { padding: '10px', marginBottom: '20px', borderRadius: '5px', border: '1px solid #ccc' },
+  optionsContainer: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  voteButton: { padding: '15px', fontSize: '18px', backgroundColor: '#f2f2f2', border: 'none', borderRadius: '10px', cursor: 'pointer' },
+  resultsContainer: { marginBottom: '20px' },
+  resultsBar: { display: 'flex', justifyContent: 'space-around', marginBottom: '10px' },
+  shareButton: { border: '1px solid black', background: 'none', padding: '10px', borderRadius: '5px', cursor: 'pointer' },
+  commentsSection: { marginTop: '30px' },
+  commentsList: { listStyle: 'none', padding: '0' },
+  commentItem: { padding: '5px', borderBottom: '1px solid #eee', textAlign: 'left' },
+  commentInput: { width: '100%', padding: '10px', marginTop: '10px', borderRadius: '5px', border: '1px solid #ccc' },
+  submitCommentButton: { marginTop: '10px', padding: '10px 20px', borderRadius: '5px', border: '1px solid black', background: 'none', cursor: 'pointer' },
+  footer: { marginTop: '50px', color: '#999', fontSize: '14px' },
 };
