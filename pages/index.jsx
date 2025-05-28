@@ -39,7 +39,6 @@ export default function Home() {
 
       setLoading(false);
     };
-
     fetchQuestion();
   }, []);
 
@@ -62,7 +61,6 @@ export default function Home() {
         if (already) setAlreadyVoted(true);
       }
     };
-
     fetchVotes();
   }, [userId, question]);
 
@@ -102,8 +100,8 @@ export default function Home() {
         .eq('question_id', question.id)
         .order('created_at', { ascending: true });
 
-      if (error) console.error('Failed to fetch comments:', error);
-      if (data) setCommentsList(data);
+      if (error) console.error('Error fetching comments:', error);
+      else setCommentsList(data);
     };
     fetchComments();
   }, [question]);
@@ -150,7 +148,7 @@ export default function Home() {
   };
 
   const handleCommentSubmit = async (parentId = null, content = comment) => {
-    if (!content.trim() || !question?.id) return;
+    if (!content.trim() || !question?.id || !userId) return;
     const { error } = await supabase.from('comments').insert([
       {
         question_id: question.id,
@@ -172,17 +170,18 @@ export default function Home() {
   };
 
   const totalVotes = votes.Yes + votes.No || 1;
-  if (loading || !question) return <p>Loading...</p>;
 
   const renderReplies = (parentId) => {
     return commentsList
-      .filter((reply) => reply.parent_id === parentId)
+      .filter((r) => r.parent_id === parentId)
       .map((reply) => (
         <div key={reply.id} style={{ marginLeft: '20px', fontStyle: 'italic' }}>
-          ↳ <strong>{reply.profiles?.username || 'Anonymous'}:</strong> {reply.content}
+          ↳ <strong>{reply.profiles?.username || 'Anon'}:</strong> {reply.content}
         </div>
       ));
   };
+
+  if (loading || !question) return <p>Loading...</p>;
 
   return (
     <div style={styles.container}>
@@ -242,7 +241,7 @@ export default function Home() {
               .filter((c) => !c.parent_id)
               .map((comment) => (
                 <li key={comment.id} style={styles.commentItem}>
-                  <p><strong>{comment.profiles?.username || 'Anonymous'}:</strong> {comment.content}</p>
+                  <p><strong>{comment.profiles?.username || 'Anon'}:</strong> {comment.content}</p>
                   {renderReplies(comment.id)}
                   <input
                     type="text"
