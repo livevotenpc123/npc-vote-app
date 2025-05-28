@@ -67,9 +67,7 @@ export default function Home() {
   useEffect(() => {
     const fetchStreak = async () => {
       if (!userId) return;
-      const { data } = await supabase.rpc('get_user_streak', {
-        p_user_id: userId,
-      });
+      const { data } = await supabase.rpc('get_user_streak', { p_user_id: userId });
       if (data !== null) setStreak(data);
     };
     fetchStreak();
@@ -94,13 +92,12 @@ export default function Home() {
   useEffect(() => {
     const fetchComments = async () => {
       if (!question) return;
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('comments')
         .select('*, profiles(username)')
         .eq('question_id', question.id)
         .order('created_at', { ascending: true });
-      if (!error) setCommentsList(data);
-      else console.error('Error fetching comments:', error);
+      if (data) setCommentsList(data);
     };
     fetchComments();
   }, [question]);
@@ -139,10 +136,7 @@ export default function Home() {
     }
 
     setSelectedOption(option);
-    setVotes((prev) => ({
-      ...prev,
-      [option]: (prev[option] || 0) + 1,
-    }));
+    setVotes((prev) => ({ ...prev, [option]: (prev[option] || 0) + 1 }));
     setAlreadyVoted(true);
   };
 
@@ -168,65 +162,131 @@ export default function Home() {
     }
   };
 
+  const topLevelComments = commentsList.filter((c) => !c.parent_id);
+  const replies = commentsList.filter((c) => c.parent_id);
+
   const totalVotes = votes.Yes + votes.No || 1;
 
   if (loading || !question) return <p>Loading...</p>;
 
   return (
-    <div>
-      <h1>{question.question_text}</h1>
-      {/* Voting UI */}
-      {!selectedOption && !alreadyVoted ? (
-        <>
-          <select value={prediction} onChange={(e) => setPrediction(e.target.value)}>
-            <option value="">Predict the winner</option>
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-          </select>
-          {[question.option_a, question.option_b].map((option) => (
-            <button key={option} onClick={() => handleVote(option)}>
-              {option}
-            </button>
-          ))}
-        </>
-      ) : (
-        <p>Thanks for voting!</p>
-      )}
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <div>NPC</div>
+        <a href="/auth" style={styles.loginButton}>Login</a>
+      </header>
 
-      {/* Comments UI */}
-      <div>
-        <h2>Comments</h2>
-        {commentsList
-          .filter((c) => !c.parent_id)
-          .map((comment) => (
-            <div key={comment.id} style={{ marginBottom: '10px' }}>
-              <p><strong>{comment.profiles?.username || 'Anonymous'}:</strong> {comment.content}</p>
-              {commentsList
-                .filter((reply) => reply.parent_id === comment.id)
-                .map((reply) => (
-                  <p key={reply.id} style={{ marginLeft: '20px', fontStyle: 'italic' }}>
-                    ↳ <strong>{reply.profiles?.username || 'Anonymous'}:</strong> {reply.content}
-                  </p>
-                ))}
-              <input
-                type="text"
-                placeholder="Write a reply..."
-                value={replyMap[comment.id] || ''}
-                onChange={(e) => setReplyMap((prev) => ({ ...prev, [comment.id]: e.target.value }))}
-              />
-              <button onClick={() => handleCommentSubmit(comment.id, replyMap[comment.id])}>
-                Reply
-              </button>
+      <main style={styles.main}>
+        <p style={styles.date}>{question.date}</p>
+        <h1 style={styles.question}>{question.question_text}</h1>
+
+        {userId && (
+          <>
+            <p><strong>🔥 Your streak:</strong> {streak} day{streak !== 1 ? 's' : ''}</p>
+            <p><strong>🏅 Prediction record:</strong> {wins} - {losses}</p>
+          </>
+        )}
+
+        {!selectedOption && !alreadyVoted ? (
+          <>
+            <select
+              value={prediction}
+              onChange={(e) => setPrediction(e.target.value)}
+              style={styles.dropdown}
+            >
+              <option value="">Predict the winner</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+            <div style={styles.optionsContainer}>
+              {[question.option_a, question.option_b].map((option) => (
+                <button
+                  key={option}
+                  onClick={() => handleVote(option)}
+                  style={styles.voteButton}
+                >
+                  {option}
+                </button>
+              ))}
             </div>
-          ))}
-        <input
-          type="text"
-          placeholder="Write a comment"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-        />
-        <button onClick={() => handleCommentSubmit()}>Submit Comment</button>
-      </div>
+          </>
+        ) : (
+          <div style={styles.resultsContainer}>
+            <div style={styles.resultsBar}>
+              <span>{question.option_a}: {((votes.Yes / totalVotes) * 100).toFixed(1)}%</span>
+              <span>{question.option_b}: {((votes.No / totalVotes) * 100).toFixed(1)}%</span>
+            </div>
+            <button style={styles.shareButton}>Share</button>
+          </div>
+        )}
+
+        <div style={styles.commentsSection}>
+          <h2>Comments</h2>
+          <ul style={styles.commentsList}>
+            {topLevelComments.map((comment) => (
+              <li key={comment.id} style={styles.commentItem}>
+                <p><strong>{comment.profiles?.username || 'Anonymous'}:</strong> {comment.content}</p>
+                {replies
+                  .filter((r) => r.parent_id === comment.id)
+                  .map((reply) => (
+                    <div key={reply.id} style={{ marginLeft: '20px', fontStyle: 'italic' }}>
+                      <strong>{reply.profiles?.username || 'Anonymous'}:</strong> {reply.content}
+                    </div>
+                  ))}
+                <input
+                  type="text"
+                  placeholder="Write a reply..."
+                  value={replyMap[comment.id] || ''}
+                  onChange={(e) => setReplyMap((prev) => ({ ...prev, [comment.id]: e.target.value }))}
+                  style={styles.commentInput}
+                />
+                <button
+                  onClick={() => handleCommentSubmit(comment.id, replyMap[comment.id])}
+                  style={styles.submitCommentButton}
+                >
+                  Reply
+                </button>
+              </li>
+            ))}
+          </ul>
+          <input
+            type="text"
+            placeholder="Write a comment"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            style={styles.commentInput}
+          />
+          <button
+            onClick={() => handleCommentSubmit()}
+            style={styles.submitCommentButton}
+          >
+            Submit Comment
+          </button>
+        </div>
+
+        <footer style={styles.footer}>1 question per day</footer>
+      </main>
     </div>
   );
 }
+
+const styles = {
+  container: { fontFamily: 'Arial', padding: '10px', maxWidth: '600px', margin: '0 auto' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' },
+  loginButton: { background: 'none', border: '1px solid black', padding: '5px 10px', borderRadius: '5px', textDecoration: 'none', color: 'black' },
+  main: { textAlign: 'center', marginTop: '30px' },
+  date: { color: '#777', marginBottom: '10px' },
+  question: { fontSize: '24px', marginBottom: '20px' },
+  dropdown: { padding: '10px', marginBottom: '20px', borderRadius: '5px', border: '1px solid #ccc' },
+  optionsContainer: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  voteButton: { padding: '15px', fontSize: '18px', backgroundColor: '#f2f2f2', border: 'none', borderRadius: '10px', cursor: 'pointer' },
+  resultsContainer: { marginBottom: '20px' },
+  resultsBar: { display: 'flex', justifyContent: 'space-around', marginBottom: '10px' },
+  shareButton: { border: '1px solid black', background: 'none', padding: '10px', borderRadius: '5px', cursor: 'pointer' },
+  commentsSection: { marginTop: '30px' },
+  commentsList: { listStyle: 'none', padding: '0' },
+  commentItem: { padding: '5px', borderBottom: '1px solid #eee', textAlign: 'left' },
+  commentInput: { width: '100%', padding: '10px', marginTop: '10px', borderRadius: '5px', border: '1px solid #ccc' },
+  submitCommentButton: { marginTop: '10px', padding: '10px 20px', borderRadius: '5px', border: '1px solid black', background: 'none', cursor: 'pointer' },
+  footer: { marginTop: '50px', color: '#999', fontSize: '14px' },
+};
