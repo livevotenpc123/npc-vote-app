@@ -96,11 +96,13 @@ export default function Home() {
   useEffect(() => {
     const fetchComments = async () => {
       if (!question) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('comments')
-        .select('*')
+        .select('*, profiles(username)')
         .eq('question_id', question.id)
         .order('created_at', { ascending: true });
+
+      if (error) console.error('Failed to fetch comments:', error);
       if (data) setCommentsList(data);
     };
     fetchComments();
@@ -162,19 +164,25 @@ export default function Home() {
       setReplyMap((prev) => ({ ...prev, [parentId]: '' }));
       const { data } = await supabase
         .from('comments')
-        .select('*')
+        .select('*, profiles(username)')
         .eq('question_id', question.id)
         .order('created_at', { ascending: true });
       setCommentsList(data);
     }
   };
 
-  const topLevelComments = commentsList.filter((c) => !c.parent_id);
-  const replies = commentsList.filter((c) => c.parent_id);
-
   const totalVotes = votes.Yes + votes.No || 1;
-
   if (loading || !question) return <p>Loading...</p>;
+
+  const renderReplies = (parentId) => {
+    return commentsList
+      .filter((reply) => reply.parent_id === parentId)
+      .map((reply) => (
+        <div key={reply.id} style={{ marginLeft: '20px', fontStyle: 'italic' }}>
+          ↳ <strong>{reply.profiles?.username || 'Anonymous'}:</strong> {reply.content}
+        </div>
+      ));
+  };
 
   return (
     <div style={styles.container}>
@@ -230,31 +238,27 @@ export default function Home() {
         <div style={styles.commentsSection}>
           <h2>Comments</h2>
           <ul style={styles.commentsList}>
-            {topLevelComments.map((comment) => (
-              <li key={comment.id} style={styles.commentItem}>
-                <p>{comment.content}</p>
-                {replies
-                  .filter((r) => r.parent_id === comment.id)
-                  .map((reply) => (
-                    <div key={reply.id} style={{ marginLeft: '20px', fontStyle: 'italic' }}>
-                      ↳ {reply.content}
-                    </div>
-                  ))}
-                <input
-                  type="text"
-                  placeholder="Write a reply..."
-                  value={replyMap[comment.id] || ''}
-                  onChange={(e) => setReplyMap((prev) => ({ ...prev, [comment.id]: e.target.value }))}
-                  style={styles.commentInput}
-                />
-                <button
-                  onClick={() => handleCommentSubmit(comment.id, replyMap[comment.id])}
-                  style={styles.submitCommentButton}
-                >
-                  Reply
-                </button>
-              </li>
-            ))}
+            {commentsList
+              .filter((c) => !c.parent_id)
+              .map((comment) => (
+                <li key={comment.id} style={styles.commentItem}>
+                  <p><strong>{comment.profiles?.username || 'Anonymous'}:</strong> {comment.content}</p>
+                  {renderReplies(comment.id)}
+                  <input
+                    type="text"
+                    placeholder="Write a reply..."
+                    value={replyMap[comment.id] || ''}
+                    onChange={(e) => setReplyMap((prev) => ({ ...prev, [comment.id]: e.target.value }))}
+                    style={styles.commentInput}
+                  />
+                  <button
+                    onClick={() => handleCommentSubmit(comment.id, replyMap[comment.id])}
+                    style={styles.submitCommentButton}
+                  >
+                    Reply
+                  </button>
+                </li>
+              ))}
           </ul>
           <input
             type="text"
