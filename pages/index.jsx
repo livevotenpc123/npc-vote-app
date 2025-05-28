@@ -169,6 +169,9 @@ export default function Home() {
     }
   };
 
+  const topLevelComments = commentsList.filter((c) => !c.parent_id);
+  const replies = commentsList.filter((c) => c.parent_id);
+
   const totalVotes = votes.Yes + votes.No || 1;
 
   if (loading || !question) return <p>Loading...</p>;
@@ -224,53 +227,49 @@ export default function Home() {
           </div>
         )}
 
-        {(selectedOption || alreadyVoted) && (
-          <div style={styles.commentsSection}>
-            <h2>Comments</h2>
-            <ul style={styles.commentsList}>
-              {commentsList
-                .filter((c) => !c.parent_id)
-                .map((comment) => (
-                  <li key={comment.id} style={styles.commentItem}>
-                    <p>{comment.content}</p>
-                    {commentsList
-                      .filter((r) => r.parent_id === comment.id)
-                      .map((reply) => (
-                        <div key={reply.id} style={{ marginLeft: '20px', fontStyle: 'italic' }}>
-                          ↳ {reply.content}
-                        </div>
-                      ))}
-                    <input
-                      type="text"
-                      placeholder="Write a reply..."
-                      value={replyMap[comment.id] || ''}
-                      onChange={(e) => setReplyMap((prev) => ({ ...prev, [comment.id]: e.target.value }))}
-                      style={styles.commentInput}
-                    />
-                    <button
-                      onClick={() => handleCommentSubmit(comment.id, replyMap[comment.id])}
-                      style={styles.submitCommentButton}
-                    >
-                      Reply
-                    </button>
-                  </li>
-                ))}
-            </ul>
-            <input
-              type="text"
-              placeholder="Write a comment"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              style={styles.commentInput}
-            />
-            <button
-              onClick={() => handleCommentSubmit()}
-              style={styles.submitCommentButton}
-            >
-              Submit Comment
-            </button>
-          </div>
-        )}
+        <div style={styles.commentsSection}>
+          <h2>Comments</h2>
+          <ul style={styles.commentsList}>
+            {topLevelComments.map((comment) => (
+              <li key={comment.id} style={styles.commentItem}>
+                <p>{comment.content}</p>
+                {replies
+                  .filter((r) => r.parent_id === comment.id)
+                  .map((reply) => (
+                    <div key={reply.id} style={{ marginLeft: '20px', fontStyle: 'italic' }}>
+                      ↳ {reply.content}
+                    </div>
+                  ))}
+                <input
+                  type="text"
+                  placeholder="Write a reply..."
+                  value={replyMap[comment.id] || ''}
+                  onChange={(e) => setReplyMap((prev) => ({ ...prev, [comment.id]: e.target.value }))}
+                  style={styles.commentInput}
+                />
+                <button
+                  onClick={() => handleCommentSubmit(comment.id, replyMap[comment.id])}
+                  style={styles.submitCommentButton}
+                >
+                  Reply
+                </button>
+              </li>
+            ))}
+          </ul>
+          <input
+            type="text"
+            placeholder="Write a comment"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            style={styles.commentInput}
+          />
+          <button
+            onClick={() => handleCommentSubmit()}
+            style={styles.submitCommentButton}
+          >
+            Submit Comment
+          </button>
+        </div>
 
         <footer style={styles.footer}>1 question per day</footer>
       </main>
