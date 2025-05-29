@@ -1,76 +1,67 @@
-import React, { useState, useEffect } from 'react';
+// pages/profile.jsx
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 export default function Profile() {
   const [username, setUsername] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [hasUsername, setHasUsername] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    async function loadUser() {
+    const loadProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        const { data } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('id', user.id)
-          .single();
-        if (data) setUsername(data.username);
+      if (!user) return;
+
+      setUserId(user.id);
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .single();
+
+      if (data?.username) {
+        setHasUsername(true);
+        window.location.href = '/'; // Already has username, redirect home
       }
-    }
-    loadUser();
+
+      setLoading(false);
+    };
+
+    loadProfile();
   }, []);
 
   const handleSubmit = async () => {
-    console.log('Submitting username:', username, 'userId:', userId);
-    if (!username || !userId) return;
-    setLoading(true);
+    if (!username.trim() || !userId) return;
 
     const { error } = await supabase
       .from('profiles')
-      .upsert({ id: userId, username });
+      .update({ username: username.trim() })
+      .eq('id', userId);
 
-    if (error) {
-      alert('Failed to save username');
+    if (!error) {
+      window.location.href = '/';
     } else {
-      alert('Username saved!');
-      const next = localStorage.getItem('redirectAfterProfile');
-      if (next) {
-        localStorage.removeItem('redirectAfterProfile');
-        window.location.href = next;
-      } else {
-        window.location.href = '/';
-      }
+      alert('Error setting username');
     }
-    setLoading(false);
   };
 
+  if (loading) return <p>Loading...</p>;
+  if (hasUsername) return null;
+
   return (
-    <div style={{ maxWidth: '500px', margin: '0 auto', padding: '20px' }}>
-      <h1>Set Your Username</h1>
+    <div style={{ padding: 20, maxWidth: 400, margin: '0 auto' }}>
+      <h1>Set your username</h1>
       <input
         type="text"
-        placeholder="Your display name"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
-        style={{
-          padding: '10px',
-          width: '100%',
-          marginBottom: '10px',
-          borderRadius: '5px',
-          border: '1px solid #ccc',
-        }}
+        placeholder="Choose a username"
+        style={{ width: '100%', padding: 10, marginBottom: 10 }}
       />
-      <button onClick={handleSubmit} disabled={loading} style={{
-        padding: '10px 20px',
-        borderRadius: '5px',
-        border: 'none',
-        background: '#000',
-        color: '#fff',
-        cursor: 'pointer',
-      }}>
-        {loading ? 'Saving...' : 'Save Username'}
+      <button onClick={handleSubmit} style={{ padding: 10, width: '100%' }}>
+        Save
       </button>
     </div>
   );
