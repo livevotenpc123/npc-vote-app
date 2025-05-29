@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import dayjs from 'dayjs';
+import { useRouter } from 'next/router';
 
 export default function Home() {
   const [selectedOption, setSelectedOption] = useState(null);
@@ -17,14 +18,19 @@ export default function Home() {
   const [streak, setStreak] = useState(0);
   const [wins, setWins] = useState(0);
   const [losses, setLosses] = useState(0);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
+      if (!user) {
+        router.push('/auth');
+        return;
+      }
+      setUserId(user.id);
     };
     fetchUser();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const fetchQuestion = async () => {
@@ -116,7 +122,7 @@ export default function Home() {
 
     if (!profile || !profile.username) {
       localStorage.setItem('redirectAfterProfile', '/');
-      window.location.href = '/profile';
+      router.push('/profile');
       return;
     }
 
