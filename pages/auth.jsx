@@ -1,65 +1,89 @@
-// Supabase Auth Setup with Magic Link Sign-In (Email)
-
-import { useEffect, useState } from 'react';
+// pages/auth.jsx
+import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useRouter } from 'next/router';
 
 export default function AuthPage() {
   const [email, setEmail] = useState('');
-  const [user, setUser] = useState(null);
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    const session = supabase.auth.getSession().then(({ data }) => {
-      setUser(data?.session?.user || null);
-    });
+  const router = useRouter();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-    });
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
-  const handleLogin = async (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    setLoading(true);
+    setMessage('');
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { username },
+      },
+    });
+
     if (error) {
       setMessage(error.message);
-    } else {
-      setMessage('Magic link sent to your email.');
+      setLoading(false);
+      return;
     }
-  };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    // Wait until the user confirms email, then store username
+    const user = data?.user;
+    if (user) {
+      await supabase.from('profiles').upsert({
+        id: user.id,
+        username,
+      });
+    }
+
+    setMessage('Check your email to confirm and log in.');
+    setLoading(false);
   };
 
   return (
-    <div style={{ padding: 40, maxWidth: 400, margin: 'auto' }}>
-      <h2>{user ? 'Logged In' : 'Login with Email'}</h2>
-
-      {user ? (
-        <>
-          <p>Welcome, {user.email}</p>
-          <button onClick={handleLogout}>Logout</button>
-        </>
-      ) : (
-        <form onSubmit={handleLogin}>
-          <input
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <button type="submit">Send Magic Link</button>
-        </form>
-      )}
-
-      {message && <p style={{ marginTop: 20 }}>{message}</p>}
+    <div style={styles.container}>
+      <h2>Sign Up</h2>
+      <form onSubmit={handleSignup} style={styles.form}>
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          style={styles.input}
+        />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          style={styles.input}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          style={styles.input}
+        />
+        <button type="submit" disabled={loading} style={styles.button}>
+          {loading ? 'Signing up...' : 'Sign Up'}
+        </button>
+        {message && <p>{message}</p>}
+      </form>
     </div>
   );
 }
+
+const styles = {
+  container: { maxWidth: '400px', margin: '50px auto', fontFamily: 'Arial' },
+  form: { display: 'flex', flexDirection: 'column', gap: '15px' },
+  input: { padding: '10px', fontSize: '16px', borderRadius: '5px', border: '1px solid #ccc' },
+  button: { padding: '10px', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' },
+};
