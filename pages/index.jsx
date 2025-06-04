@@ -18,6 +18,7 @@ export default function Home() {
   const [streak, setStreak] = useState(0);
   const [wins, setWins] = useState(0);
   const [losses, setLosses] = useState(0);
+  const [showComments, setShowComments] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -106,7 +107,7 @@ export default function Home() {
       if (data) setCommentsList(data);
     };
     fetchComments();
-  }, [question]);
+  }, [question, showComments]);
 
   const handleVote = async (option) => {
     if (alreadyVoted || !prediction || !question?.id) return;
@@ -144,6 +145,7 @@ export default function Home() {
     setSelectedOption(option);
     setVotes((prev) => ({ ...prev, [option]: (prev[option] || 0) + 1 }));
     setAlreadyVoted(true);
+    setShowComments(true); // Show comments immediately after vote
   };
 
   const handleCommentSubmit = async (parentId = null, content = comment) => {
@@ -226,7 +228,7 @@ export default function Home() {
           </div>
         )}
 
-        {alreadyVoted && (
+        {(alreadyVoted || showComments) && (
           <div style={styles.commentsSection}>
             <h2>Comments</h2>
             <ul style={styles.commentsList}>
