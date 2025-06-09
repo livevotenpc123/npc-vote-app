@@ -65,7 +65,12 @@ export default function Home() {
         setVotes(counts);
 
         const already = data.find((v) => v.user_id === userId);
-        if (already) setAlreadyVoted(true);
+        if (already) {
+          setAlreadyVoted(true);
+          setSelectedOption(already.choice);
+          setPrediction(already.prediction);
+          setShowComments(true);
+        }
       }
     };
     fetchVotes();
@@ -145,7 +150,7 @@ export default function Home() {
     setSelectedOption(option);
     setVotes((prev) => ({ ...prev, [option]: (prev[option] || 0) + 1 }));
     setAlreadyVoted(true);
-    setShowComments(true); // Show comments immediately after vote
+    setShowComments(true);
   };
 
   const handleCommentSubmit = async (parentId = null, content = comment) => {
@@ -172,7 +177,6 @@ export default function Home() {
 
   const topLevelComments = commentsList.filter((c) => !c.parent_id);
   const replies = commentsList.filter((c) => c.parent_id);
-
   const totalVotes = votes.Yes + votes.No || 1;
 
   if (loading || !question) return <p>Loading...</p>;
